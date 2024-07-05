@@ -192,7 +192,7 @@ public class Methode {
                                 }
                             }
                         } else {
-                            throw new IllegalArgumentException("Parameter annotation @Param not found for method parameter: ETU2712");
+                            throw new IllegalArgumentException("Not found error:ETU2712");
                         }
                     }
                     if (matches) {
