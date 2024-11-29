@@ -4,6 +4,7 @@ import util.Mapping;
 import util.Methode;
 
 import java.io.IOException;
+import java.io.PrintWriter;
 import java.lang.reflect.InvocationTargetException;
 import java.util.HashMap;
 import java.util.List;
@@ -15,17 +16,12 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
 public class FrontController extends HttpServlet {
-    public HashMap<String, Mapping> mapping;
+    public HashMap<String, Mapping> hashmap;
     public List<Class<?>> controllers;
     public List<String> controllersName;
     public Methode methode;
     public String url;
     public Object result;
-    public Object[] params;
-    public String stringParam;
-    public String variableName;
-    public Object value;
-    public String urlDispatcher;
 
     @Override
     public void init() throws ServletException {
@@ -33,41 +29,59 @@ public class FrontController extends HttpServlet {
         methode = new Methode();
         String packageName = getControllerPackageName();
         controllers = methode.scanControllers(packageName);
+        if (controllers.isEmpty()) {
+            throw new ServletException("No controllers found in the package 'controllers'");
+        }
         controllersName = methode.getClassName(controllers);
-        stringParam = "Ohatra fotsiny";
-        variableName = "tsekijoby";
-        value = 69;
-        urlDispatcher = "/test.jsp";
     }
 
     protected void processRequest(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException, ClassNotFoundException, InvocationTargetException, NoSuchMethodException, InstantiationException, IllegalAccessException {
 
-        String urlString = request.getRequestURL().toString();
-
+        //String urlString = request.getRequestURL().toString();
         url = methode.getUrlAfterSprint(request);
+        hashmap = methode.urlMethod(controllers, url);
 
-        mapping = methode.urlMethod(controllers, url);
+        result = methode.execute(methode.getMapping(hashmap), request);
 
-        if (url.equals("/hola")) {
-            params = new Object[]{stringParam};
-        } else if (url.equals("/hole")) {
-            params = new Object[]{variableName, value, urlDispatcher};
-        }
-
-        result = methode.execute(methode.getMapping(mapping), params);
-
-        if(result instanceof String) {
-            request.setAttribute("value", result);
+        if (result instanceof String) {
+            if (methode.isJsonResponse(methode.getMapping(hashmap))) {
+                sendJsonResponse(response, (String) result);
+            } else {
+                request.setAttribute("value", result);
+                forwardToJsp(request, response);
+            }
         } else if (result instanceof ModelView) {
-            request.setAttribute("data", ((ModelView) result).getData());
-            request.getRequestDispatcher(((ModelView) result).getUrl()).forward(request, response);
+            ModelView mv = (ModelView) result;
+            if (methode.isJsonResponse(methode.getMapping(hashmap))) {
+                sendJsonResponse(response, methode.convertToJson(mv.getData()));
+            } else {
+                request.setAttribute("data", mv.getSingleValue());
+                request.getRequestDispatcher(mv.getUrl()).forward(request, response);
+            }
+        } else if (result != null) {
+            // Assume any other non-null result from a @Restapi method should be sent as JSON
+            if (methode.isJsonResponse(methode.getMapping(hashmap))) {
+                sendJsonResponse(response, methode.convertToJson(result));
+            } else {
+                throw new ServletException("Unexpected return type for non-Restapi method");
+            }
         } else {
-            throw new NoSuchMethodException("No such method found with the given name and parameter count.");
+            throw new ServletException("No result returned from controller method");
         }
+    }
 
-        request.setAttribute("mapping", mapping);
-        request.setAttribute("url", urlString);
+    private void sendJsonResponse(HttpServletResponse response, String jsonContent) throws IOException {
+        response.setContentType("application/json");
+        response.setCharacterEncoding("UTF-8");
+        PrintWriter out = response.getWriter();
+        out.print(jsonContent);
+        out.flush();
+    }
+
+    private void forwardToJsp(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+        request.setAttribute("hashmap", hashmap);
+        request.setAttribute("url", request.getRequestURL().toString());
         request.setAttribute("controllers", controllersName);
         request.getRequestDispatcher("/index.jsp").forward(request, response);
     }
