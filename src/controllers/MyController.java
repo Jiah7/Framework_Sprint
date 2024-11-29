@@ -3,6 +3,7 @@ package controllers;
 import annotations.AnnotationController;
 import annotations.Get;
 import annotations.Param;
+import annotations.Restapi;
 import frameworks.ModelView;
 import frameworks.MySession;
 import util.Employe;
@@ -11,6 +12,7 @@ import util.Employe;
 public class MyController {
 
     @Get(value = "/login")
+    @Restapi
     public ModelView login(@Param(name = "username") String username, 
                            @Param(name = "password") String password, 
                            MySession session) {
@@ -19,6 +21,7 @@ public class MyController {
             "user2".equals(username) && "pass2".equals(password)) {
             session.add("user", username);
             mv.setUrl("/userList.jsp");
+            mv.addObject("message", "Bienvenue, " + username + "!");
             //mv.addObject("userList", userLists.get(username));
         } else {
             mv.setUrl("/index.jsp");
@@ -37,11 +40,13 @@ public class MyController {
     }
 
     @Get(value = "/hola")
+    @Restapi
     public String hola() {
         return "Ohatra fotsiny";
     }
 
     @Get(value = "/hole")
+    @Restapi
     public ModelView hole() {
         String url = "/test.jsp";
         String variableName = "Mika&Davis";
@@ -52,6 +57,11 @@ public class MyController {
     }
 
     @Get(value = "/liste")
+    @Restapi
+    public String liste(@Param(name = "emp") Employe emp) {
+        return "Nom de l\'employe: " + emp.getNom() + " et Age de l\'employe: " + emp.getAge();
+    }
+  
     public String liste(@Param(name = "emp") Employe emp) {
         return "Nom de l'employe: " + emp.getNom() + " et Age de l'employe: " + emp.getAge();
     }
